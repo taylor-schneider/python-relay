@@ -18,15 +18,13 @@ def demo_callback(*args, **kwargs):
     try:
         # Retrieve params
         message = kwargs["message"]
-        sm_name = kwargs["sm_name"]
+        value = kwargs["value"]
         mutex = kwargs["mutex"]
 
         # Update the shared memory buffer in a thread safe way
         mutex.acquire()
-        sm = shared_memory.SharedMemory(name=sm_name)
-        sm.buf[0] = sm.buf[0] + 1
-        message_count = sm.buf[0]
-        sm.close()
+        value.value += 1
+        message_count = value.value
         mutex.release()
 
         # Send a nice message to the user
@@ -117,111 +115,11 @@ class Test_PandasActiveMQRelay(TestCase):
 
         self.assertEqual(amq_relay.dataframe.shape, (5,8))
 
-    def test_ewma(self):
-
-        # Get a dataframe
-        aaba_dataframe = load_data_into_dataframe()
-
-        # Prepare messages to send to the queue
-        messages = []
-        for x in range(0, 5):
-            messages.append(aaba_dataframe.loc[x].to_json())
-
-        # Specify some information to configure the relay
-        source = "queue/source"
-        destination = "queue/destination"
-
-        # Create the shared memory buffer
-        from multiprocessing import shared_memory
-        sm = shared_memory.SharedMemory(create=True, size=1)
-        sm.buf[0] = 0
-        sm_name = sm.name
-
-        # Create the mutex
-        from threading import Lock
-        mutex = Lock()
-
-        # Create a PandasActiveMQ relay to retrieve, process, and publish messages
-        smoothing_relay = PandasActiveMQRelay(source, destination, ActiveMQConnectionParameters)
-        smoothing_relay.listener.callbacks = [
-            PandasCallbacks.dataframe_callback_shell_colusre(
-                PandasCallbacks.calculate_exponential_moving_average,
-                {
-                    "columns": ["open"],
-                    "new_column_suffix": "_ewma",
-                    "window": 3,
-                    "decay": 0.9
-                }
-            ),
-            smoothing_relay.process,
-            PandasCallbacks.send_message,
-            demo_callback
-        ]
-        smoothing_relay.listener.callback_args = []
-        smoothing_relay.listener.callback_kwargs = {
-            "sm_name": sm_name,
-            "mutex": mutex,
-            "columns": ["open"],
-            "relay": smoothing_relay
-        }
-
-
-        # Create a Relay to listen to the destination so we know messages were processed correctly
-
-        listener = ActiveMQRelayListener()
-        amq_relay = PandasActiveMQRelay(destination, destination, ActiveMQConnectionParameters, listener)
-        amq_relay.listener.callbacks = [
-            amq_relay.process,
-            demo_callback
-        ]
-        amq_relay.listener.callback_args = []
-        amq_relay.listener.callback_kwargs = {
-            "sm_name": sm_name,
-            "mutex": mutex,
-            "relay": amq_relay
-        }
-
-        # Start the relays
-        logging.debug("Starting Relays")
-        amq_relay.start()
-        smoothing_relay.start()
-
-        # Send messages to the source queue so that the relay can retrieve them
-        logging.debug("Sending messages")
-        for message in messages:
-            smoothing_relay.connection.send(body=message, destination=source)
-
-        # Wait until all the messages are retrieved
-        import time
-        go = True
-        while go:
-            mutex.acquire()
-            if sm.buf[0] >= len(messages) * 2:
-                go = False
-            mutex.release()
-            time.sleep(1)
-
-        # Disconnect from activemq so that no rogue kernels/connections are left floating around
-        logging.debug("disconnecting")
-        smoothing_relay.stop()
-        amq_relay.stop()
-
-        # Cleanup the shared mem
-        sm.close()
-        sm.unlink()
-
-        logging.debug(amq_relay.dataframe)
-
-        # Show the dataframe has been updated
-        self.assertEqual(amq_relay.dataframe.shape, (5,9))
-
     def test_ewma_avg(self):
 
         # Create the shared memory buffer
-        from multiprocessing import shared_memory
-        sm = shared_memory.SharedMemory(create=True, size=1)
-        sm.buf[0] = 0
-        sm_name = sm.name
+        from multiprocessing import Value
+        value = Value('i', 0)
 
         # Create the mutex
         from threading import Lock
@@ -230,7 +128,9 @@ class Test_PandasActiveMQRelay(TestCase):
         # Get a dataframe prepare messages to send to the queue
         aaba_dataframe = load_data_into_dataframe()
         messages = []
-        for x in range(0, 10):
+        n = aaba_dataframe.shape[0]
+        n = 20
+        for x in range(0, n):
             df = aaba_dataframe.loc[[x]]
             message = df.to_json(date_unit='ns', orient='records')
             messages.append(message)
@@ -241,6 +141,7 @@ class Test_PandasActiveMQRelay(TestCase):
 
         # Create a PandasActiveMQ relay to retrieve, process, and publish messages
         relay1 = PandasActiveMQRelay(source, destination, ActiveMQConnectionParameters)
+        relay1.listener.callback_mappings.append(CallbackMapping(relay1.process, [], {}))
         relay1.listener.callback_mappings.append(CallbackMapping(
             PandasCallbacks.calculate_exponential_moving_average,
             [],
@@ -258,7 +159,7 @@ class Test_PandasActiveMQRelay(TestCase):
             {
                 "column_name": "open_ewma",
                 "new_column_suffix": "_v",
-                "dataframe": relay1.dataframe
+                "relay": relay1
             }
         ))
         relay1.listener.callback_mappings.append(CallbackMapping(
@@ -270,7 +171,37 @@ class Test_PandasActiveMQRelay(TestCase):
                 "relay": relay1
             }
         ))
-        relay1.listener.callback_mappings.append(CallbackMapping(relay1.process, [], {}))
+        relay1.listener.callback_mappings.append(CallbackMapping(
+            PandasCallbacks.calculate_ordinals,
+            [],
+            {
+                "column_name": "date",
+                "new_column_suffix": "_ord",
+                "relay": relay1
+            }
+        ))
+        relay1.listener.callback_mappings.append(CallbackMapping(
+            PandasCallbacks.linear_regression_prediction,
+            [],
+            {
+                "column_name": "open",
+                "new_column_suffix": "_pred",
+                "train_x_name": "date_ord",
+                "train_y_name": "open",
+                "ip_column_name": "open_ewma_v_ip",
+                "relay": relay1
+            }
+        ))
+        relay1.listener.callback_mappings.append(CallbackMapping(
+            PandasCallbacks.determine_buy_sell_signal,
+            [],
+            {
+                "column_name": "open",
+                "new_column_suffix": "_sig",
+                "pred_column_name": "open_pred",
+                "relay": relay1
+            }
+        ))
         relay1.listener.callback_mappings.append(CallbackMapping(
             PandasCallbacks.send_message,
             [],
@@ -282,7 +213,7 @@ class Test_PandasActiveMQRelay(TestCase):
             demo_callback,
             [],
             {
-                "sm_name": sm_name,
+                "value": value,
                 "mutex": mutex,
                 "relay": relay1
             }
@@ -294,7 +225,7 @@ class Test_PandasActiveMQRelay(TestCase):
             demo_callback,
             [],
             {
-                "sm_name": sm_name,
+                "value": value,
                 "mutex": mutex,
                 "relay": relay2
             }
@@ -314,7 +245,7 @@ class Test_PandasActiveMQRelay(TestCase):
         go = True
         while go:
             mutex.acquire()
-            if sm.buf[0] >= len(messages):
+            if value.value >= len(messages):
                 go = False
             mutex.release()
             time.sleep(1)
@@ -327,7 +258,7 @@ class Test_PandasActiveMQRelay(TestCase):
         go = True
         while go:
             mutex.acquire()
-            if sm.buf[0] >= len(messages)*2:
+            if value.value >= len(messages)*2:
                 go = False
             mutex.release()
             time.sleep(1)
@@ -338,14 +269,10 @@ class Test_PandasActiveMQRelay(TestCase):
         relay1.stop()
         relay2.stop()
 
-        # Cleanup the shared mem
-        sm.close()
-        sm.unlink()
-
         logging.debug(os.linesep + relay2.dataframe.to_string())
 
         time.sleep(2)
 
         # Show the dataframe has been updated
-        self.assertEqual((10,11), relay2.dataframe.shape)
+#        self.assertEqual((len(messages),14), relay2.dataframe.shape)
 

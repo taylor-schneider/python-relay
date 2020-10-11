@@ -1,0 +1,16 @@
+Metadata-Version: 2.1
+Name: Relay
+Version: 1.0.0
+Summary: A collection of libraries for relays and callbacks.
+Home-page: UNKNOWN
+Author: tschneider
+Author-email: tschneider@live.com
+License: UNKNOWN
+Description: # Relays
+        
+        
+Platform: UNKNOWN
+Classifier: Programming Language :: Python :: 3
+Classifier: License :: OSI Approved :: GNU General Public License v3 (GPLv3)
+Classifier: Operating System :: OS Independent
+Description-Content-Type: text/markdown

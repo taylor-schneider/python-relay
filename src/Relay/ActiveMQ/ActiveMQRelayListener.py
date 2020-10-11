@@ -16,7 +16,6 @@ class ActiveMQRelayListener(stomp.ConnectionListener):
 
         self.callback_mappings = []
         self.relay = None
-        self.lock = Lock()
 
         super(ActiveMQRelayListener, self).__init__()
 
@@ -33,8 +32,6 @@ class ActiveMQRelayListener(stomp.ConnectionListener):
     def on_message(self, headers, message):
 
         try:
-#            self.lock.acquire()
-
             # Global kwargs are the base set of kwargs passed to all callbacks
             global_kwargs = {"headers": headers, "message": message}
 
@@ -57,6 +54,3 @@ class ActiveMQRelayListener(stomp.ConnectionListener):
         except Exception as e:
             logging.error(e)
             raise e
-        finally:
-            pass
-#            self.lock.release()
