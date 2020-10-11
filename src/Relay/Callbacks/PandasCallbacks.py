@@ -223,8 +223,8 @@ def linear_regression_prediction(*args, **kwargs):
 
     # Get Params
     column_name = kwargs["column_name"]
-    pred_column_name = kwargs["pred_column"]
-    slope_suffix_name = kwargs["slope_suffix"]
+    pred_suffix = kwargs["pred_suffix"]
+    slope_suffix = kwargs["slope_suffix"]
     train_x_name = kwargs["train_x_name"]
     train_y_name = kwargs["train_y_name"]
     ip_column_name = kwargs["ip_column_name"]
@@ -237,8 +237,8 @@ def linear_regression_prediction(*args, **kwargs):
     results = CallbackResult(message, {})
 
     # Determine the name of the new column
-    pred_column_name = "{0}{1}".format(column_name, pred_column_name)
-    slope_column_name = "{0}{1}".format(column_name, slope_suffix_name)
+    pred_column_name = "{0}{1}".format(column_name, pred_suffix)
+    slope_column_name = "{0}{1}".format(column_name, slope_suffix)
 
     results.misc["pred_column_name"] = pred_column_name
     results.misc["slope_suffix_name"] = slope_column_name
@@ -246,8 +246,8 @@ def linear_regression_prediction(*args, **kwargs):
     # Add the new column to the dataframe
     if pred_column_name not in df.columns:
         df[pred_column_name] = numpy.nan
-    if slope_suffix_name not in df.columns:
-        df[slope_suffix_name] = numpy.nan
+    if slope_column_name not in df.columns:
+        df[slope_column_name] = numpy.nan
 
     # Determine the index of the previous ip
     n = df.shape[0]
@@ -276,7 +276,10 @@ def linear_regression_prediction(*args, **kwargs):
         t_n = train_x.shape[0]
         x = train_x[t_n - 1].reshape(-1, 1) # I am not sure why we need to reshape the data
         p = float(reg.predict(x))
-        c = float(reg.coef[0])
+        c = float(reg.coef_[0])
+
+        if c < 0:
+            x = ""
 
     # Update the df
     df.at[n - 1, pred_column_name] = p
@@ -285,7 +288,7 @@ def linear_regression_prediction(*args, **kwargs):
     # Update the message in the results
     d = json.loads(message)
     d[0][pred_column_name] = p
-    d[0][slope_suffix_name] = c
+    d[0][slope_column_name] = c
     results.message = json.dumps(d)
 
     return results
@@ -295,7 +298,7 @@ def determine_buy_sell_signal(*args, **kwargs):
 
     # Get Params
     column_name = kwargs["column_name"]
-    pred_column_name = kwargs["pred_column_name"]
+    slope_column_name = kwargs["slope_column_name"]
     message = kwargs["message"]
     relay = kwargs["relay"]
 
@@ -319,13 +322,12 @@ def determine_buy_sell_signal(*args, **kwargs):
 
     # Determine the signal
     n = df.shape[0]
-    v = df[column_name][n - 1]
-    p = df[pred_column_name][n - 1]
+    slope = df[slope_column_name][n-1]
     b = numpy.nan
     s = numpy.nan
-    if v > p:
+    if slope < 0:
         s = df[column_name][n - 1]
-    elif p > v:
+    elif slope > 0:
         b = df[column_name][n - 1]
 
     # Update the df
@@ -339,5 +341,63 @@ def determine_buy_sell_signal(*args, **kwargs):
     results.message = json.dumps(d)
 
     return results
+
+def simulate_trade_and_update_ledger(*args, **kwargs):
+
+    # Retrieve the kwargs
+    cash_column_name = kwargs["cash_column_name"]
+    invested_column_name = kwargs["invested_column_name"]
+    returns_column_name = kwargs["returns_column_name"]
+    ledger_column_name = kwargs["ledger_column_name"]
+    buy_signal_column_name = kwargs["buy_signal_column_name"]
+    sell_signal_column_name = kwargs["sell_signal_column_name"]
+    starting_cash = kwargs["starting_cash"]
+    message = kwargs["message"]
+
+    # Set some more pointers
+    relay = kwargs["relay"]
+    df = relay.dataframe
+
+    # Add columns if need be
+    if cash_column_name not in df.columns:
+        df[cash_column_name] = numpy.nan
+    if invested_column_name not in df.columns:
+        df[invested_column_name] = numpy.nan
+    if returns_column_name not in df.columns:
+        df[returns_column_name] = numpy.nan
+
+    # Determine our signals
+    n = df.shape[0]
+    buy = df[buy_signal_column_name][n]
+    sell = df[sell_signal_column_name][n]
+
+    # Set the default values
+    cash = starting_cash
+    invested = 0
+    returns = 0
+    ledger = ""
+
+    # If we have a signal and we have a previous state, collect it
+    if n > 2:
+        cash = df[cash_column_name][n-1]
+        invested = df[invested_column_name][n-1]
+        returns = df[returns_column_name][n-1]
+        ledger = df[ledger_column_name][n-1]
+
+    # Take action if required and possible
+    action_required = buy != numpy.nan or sell != numpy.nan
+    if action_required:
+        if buy != numpy.nan:
+            pass
+        if sell != numpy.nan:
+            pass
+
+    # Retrieve information about previous state
+    previous_state = df.loc[n - 1]
+    cash = previous_state[cash_column_name]
+
+
+    # Determine if we can take action
+    # Update the ledger
 
 

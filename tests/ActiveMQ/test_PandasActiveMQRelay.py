@@ -129,7 +129,6 @@ class Test_PandasActiveMQRelay(TestCase):
         aaba_dataframe = load_data_into_dataframe()
         messages = []
         n = aaba_dataframe.shape[0]
-        n = 20
         for x in range(0, n):
             df = aaba_dataframe.loc[[x]]
             message = df.to_json(date_unit='ns', orient='records')
@@ -185,7 +184,8 @@ class Test_PandasActiveMQRelay(TestCase):
             [],
             {
                 "column_name": "open",
-                "new_column_suffix": "_pred",
+                "pred_suffix": "_pred",
+                "slope_suffix": "_pred_dy",
                 "train_x_name": "date_ord",
                 "train_y_name": "open",
                 "ip_column_name": "open_ewma_v_ip",
@@ -197,8 +197,7 @@ class Test_PandasActiveMQRelay(TestCase):
             [],
             {
                 "column_name": "open",
-                "new_column_suffix": "_sig",
-                "pred_column_name": "open_pred",
+                "slope_column_name": "open_pred_dy",
                 "relay": relay1
             }
         ))
