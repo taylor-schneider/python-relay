@@ -43,11 +43,5 @@ setuptools.setup(
         "Programming Language :: Python :: 3",
         "License :: OSI Approved :: GNU General Public License v3 (GPLv3)",
         "Operating System :: OS Independent",
-    ],
-    scripts=[
-        "scripts/download-prices-to-file.py",
-        "scripts/load-data-to-database.py",
-        "scripts/publish-file-price-to-queue.py",
-        "scripts/subscribe-to-price-queue.py"
     ]
 )
