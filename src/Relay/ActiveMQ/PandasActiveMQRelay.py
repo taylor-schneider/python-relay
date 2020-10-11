@@ -1,6 +1,8 @@
 import json
 import pandas
 import logging
+import io
+import os
 from Relay.ActiveMQ.ActiveMQRelay import ActiveMQRelay
 
 class PandasActiveMQRelay(ActiveMQRelay):
@@ -14,8 +16,9 @@ class PandasActiveMQRelay(ActiveMQRelay):
 
         message = kwargs["message"]
         logging.debug("pandas process: {0}".format(message))
-        d = json.loads(message)
+        df = pandas.read_json(message, orient='records')
         if self.dataframe.shape == (0, 0):
-            self.dataframe = pandas.DataFrame(d, index=[0])
+            # https://pandas.pydata.org/pandas-docs/stable/reference/api/pandas.read_json.html
+            self.dataframe = df
         else:
-            self.dataframe.loc[self.dataframe.shape[0]] = d
+            self.dataframe.loc[self.dataframe.shape[0]] = df.loc[0]

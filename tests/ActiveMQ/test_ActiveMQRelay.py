@@ -2,7 +2,7 @@ from unittest import TestCase
 from multiprocessing import shared_memory
 from Relay.ActiveMQ.ActiveMQRelayListener import ActiveMQRelayListener
 from Relay.ActiveMQ import ActiveMQRelay
-from Relay.ActiveMQ.CallbackResult import CallbackResult
+from Relay.Callbacks.CallbackResult import CallbackResult
 from Relay.ActiveMQ.ActiveMQConnectionParameters import ActiveMQConnectionParameters
 import numpy
 import pandas

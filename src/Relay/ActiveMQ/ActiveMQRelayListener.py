@@ -6,16 +6,17 @@
 # By default, the Listener will call the processing function on the relay when it receives a message
 
 import stomp
-from Relay.ActiveMQ.CallbackResult import CallbackResult
+from threading import Lock
+from Relay.Callbacks.CallbackResult import CallbackResult
+import logging
 
 class ActiveMQRelayListener(stomp.ConnectionListener):
 
     def __init__(self):
 
-        self.callback = []
-        self.callback_args = []
-        self.callback_kwargs = {}
+        self.callback_mappings = []
         self.relay = None
+        self.lock = Lock()
 
         super(ActiveMQRelayListener, self).__init__()
 
@@ -31,17 +32,31 @@ class ActiveMQRelayListener(stomp.ConnectionListener):
 
     def on_message(self, headers, message):
 
-        args = self.callback_args
-        kwargs = self.callback_kwargs
-        kwargs.update({"headers": headers, "message": message})
+        try:
+#            self.lock.acquire()
 
-        for callback in self.callbacks:
+            # Global kwargs are the base set of kwargs passed to all callbacks
+            global_kwargs = {"headers": headers, "message": message}
 
-            # Capture the result of the callback
-            result = callback(*args, **kwargs)
+            for callback_mapping in self.callback_mappings:
 
-            # Update the message
-            # Update the kwargs for the next callback if appropriate
-            if type(result) == CallbackResult:
-                kwargs.update({"message": result.message})
-                kwargs.update(result.misc)
+                # Set params for callback
+                callback = callback_mapping.callback
+                callback_args = callback_mapping.args
+                callback_kwargs = global_kwargs
+                callback_kwargs.update(callback_mapping.kwargs)
+
+                # Capture the result of the callback
+                callback_result = callback(*callback_args, **callback_kwargs)
+
+                # Update the message object and update the kwargs for the next callback if appropriate
+                if type(callback_result) == CallbackResult:
+                    global_kwargs.update({"message": callback_result.message})
+                    global_kwargs.update(callback_result.misc)
+
+        except Exception as e:
+            logging.error(e)
+            raise e
+        finally:
+            pass
+#            self.lock.release()

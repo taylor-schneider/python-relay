@@ -19,8 +19,6 @@ class ActiveMQRelay():
             self.listener = ActiveMQRelayListener()
             self.listener.callbacks = [self.process]
 
-        self.listener.callback_kwargs["relay"] = self
-
     def start(self):
 
         # Connect to ActiveMQ
