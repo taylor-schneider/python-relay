@@ -1,19 +1,20 @@
 from unittest import TestCase
-from Relay.Callbacks.Utilities import convert_date_string_to_date, df_row_to_json
+from Relay import Utilities
 from Relay.ActiveMQ.PandasActiveMQRelay import PandasActiveMQRelay
-from Relay.ActiveMQ.ActiveMQRelayListener import ActiveMQRelayListener
 from Relay.Callbacks.CallbackMapping import CallbackMapping
+from tests.Relay.ActiveMQ.DummyRelay import DummyRelay
 from Relay.Callbacks.PandasCallbacks import demo_algo_callback
-
 import pandas
-
-
+import os
+import logging
+import time
+logging.basicConfig(level=logging.DEBUG, format='%(asctime)s :: %(levelname)6s :: %(threadName)12s :: %(filename)30s:%(lineno)4s - %(funcName)25s() ::  %(message)s')
 
 
 
 class test_demo_algo_callback(TestCase):
 
-    def test_success_emmpy_dataframe(self):
+    def test_success__emmpy_dataframe(self):
 
         # Setup a dummy relay
         relay = DummyRelay()
@@ -22,42 +23,49 @@ class test_demo_algo_callback(TestCase):
         # Create a dummy message
         df = pandas.DataFrame({
             "open": [5],
-            "date": [convert_date_string_to_date('2019-07-01')]
+            "date": [Utilities.convert_date_string_to_date('2019-07-01')]
         })
-        message = df_row_to_json(df, 0)
+        message = Utilities.df_row_to_json(df, 0)
 
         # Create the callback mappings for the relay's listener
         relay.listener.callback_mappings = [
             CallbackMapping(
                 relay.process,
-                relay,
+                [relay],
                 {
-                    "relay": relay,
-                    "column_name": open,
-                    "ewma_suffix": "_ewma",
-                    "v_suffix": "_v",
-                    "ip_suffix": "_ip"
+                    "relay": relay
                 }
             ),
             CallbackMapping(
                 demo_algo_callback,
-                relay,
+                [],
                 {
                     "relay": relay,
-                    "column_name": open,
+                    "price_column_name": "open",
+                    "date_column_name": "date",
                     "ewma_suffix": "_ewma",
                     "v_suffix": "_v",
-                    "ip_suffix": "_ip"
+                    "ip_suffix": "_ip",
+                    "ewma_window": 3,
+                    "ewma_decay": 0.9,
+                    "ord_suffix": "_ord",
+                    "seg_suffix": "_seg",
+                    "lr_suffix": "_LR",
+                    "LR_x": "date_ord",
+                    "LR_y": "open"
                 }
-            ),
+            )
         ]
 
         relay.listener.on_message({}, message)
 
-        self.assertEqual(df.dtypes, relay.dataframe.dtypes)
-        self.assertEqual(df.columns, relay.dataframe.columns)
+        logging.debug(os.linesep + str(relay.dataframe.to_string()))
+        time.sleep(0.5) # Let the log print to screen
 
-        #cr2 = demo_algo_callback(**kwargs)
+        self.assertEqual(relay.dataframe.shape, (1,8))
+        self.assertEqual(list(relay.dataframe.columns), ["open", "date", "open_ewma", "open_ewma_v", "open_ewma_v_ip", "date_ord", "open_ewma_v_ip_seg", "open_LR"])
+        self.assertTrue(df.index == relay.dataframe.index)
+
 
         s = ""
 

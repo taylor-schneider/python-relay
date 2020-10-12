@@ -15,7 +15,7 @@ def convert_date_string_to_date(input_string):
 # https://pandas.pydata.org/pandas-docs/stable/reference/api/pandas.read_json.html
 
 def df_row_to_json(dataframe, row_index):
-    return dataframe.loc[[row_index]].to_json(date_unit='ns', orient='table')
+    return dataframe.iloc[[row_index]].to_json(date_unit='ns', orient='table')
 
 
 def df_row_from_json(message):

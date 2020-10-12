@@ -4,6 +4,7 @@ import json
 import logging
 from Relay.Callbacks.CallbackResult import CallbackResult
 from Relay.Transformations import PandasDataframeTransformations
+from Relay import Utilities
 
 def send_message(*args, **kwargs):
     relay = kwargs['relay']
@@ -43,19 +44,45 @@ def demo_algo_callback(*args, **kwargs):
     # Get basic some params
     relay = kwargs['relay']
     message = kwargs["message"]
-    column_name = kwargs["column_name"]
+    price_column_name = kwargs["price_column_name"]
+    date_column_name = kwargs["date_column_name"]
     df = relay.dataframe
 
     # execute some transformations
     ewma_suffix = kwargs["ewma_suffix"]
-    PandasDataframeTransformations.exponential_moving_average(df, column_name, ewma_suffix)
+    ewma_column_name = price_column_name + ewma_suffix
+    ewma_window = kwargs["ewma_window"]
+    ewma_decay = kwargs["ewma_decay"]
+    PandasDataframeTransformations.exponential_moving_average(
+        df, price_column_name, ewma_suffix, ewma_window, ewma_decay)
 
     v_suffix = kwargs["v_suffix"]
-    PandasDataframeTransformations.diff(df, column_name, v_suffix)
+    v_column_name = ewma_column_name + v_suffix
+    PandasDataframeTransformations.diff(
+        df, ewma_column_name, v_suffix)
 
     ip_suffix = kwargs["ip_suffix"]
-    PandasDataframeTransformations.inflection_point(df, column_name + v_suffix, ip_suffix)
+    ip_column_name = v_column_name + ip_suffix
+    PandasDataframeTransformations.inflection_point(
+        df, v_column_name, ip_suffix)
+
+    ord_suffix = kwargs["ord_suffix"]
+    PandasDataframeTransformations.date_ordinals(
+        df, date_column_name, ord_suffix)
+
+    seg_suffix = kwargs["seg_suffix"]
+    seg_column_name = ip_column_name + seg_suffix
+    PandasDataframeTransformations.number_segment(
+        df, ip_column_name, seg_suffix)
+
+    lr_suffix = kwargs["lr_suffix"]
+    lr_column_name = price_column_name + lr_suffix
+    lr_x = kwargs["LR_x"]
+    lr_y = kwargs["LR_y"]
+    PandasDataframeTransformations.segment_linear_regression_prediction(
+        df, lr_x, lr_y, seg_column_name, lr_suffix)
+
 
     # Update the message with the new json
-    row_json = df[df.shape[0] - 1].to_json()
+    row_json = Utilities.df_row_to_json(df, df.shape[0] - 1)
     results = CallbackResult(row_json, {})

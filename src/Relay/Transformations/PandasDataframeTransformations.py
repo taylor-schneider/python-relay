@@ -65,7 +65,7 @@ def inflection_point(dataframe, column_name, new_column_suffix, update_df=True):
         v1 = column[n - 2] - column[n - 3]
 
         if numpy.isnan(v1) and numpy.isnan(v2):
-            ip = 0
+            ip = numpy.nan
         else:
             ip = int(not __same_signs(v1, v2))
 
@@ -117,6 +117,9 @@ def number_segment(dataframe, column_name, new_column_suffix, update_df=True):
 
 
 def segment_linear_regression_prediction(dataframe, x_column_name, y_column_name, segment_column_name, new_column_suffix, update_df=True):
+
+    # This function relies on a segment column being populated
+
     n = dataframe.shape[0]
 
     segment_num = dataframe[segment_column_name][n - 1]
@@ -138,3 +141,4 @@ def segment_linear_regression_prediction(dataframe, x_column_name, y_column_name
         utils.update_dataframe_column(dataframe, y_column_name, new_column_suffix, pred_y, numpy.nan)
     else:
         return pred_y
+

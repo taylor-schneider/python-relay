@@ -78,11 +78,7 @@ class Test_PandasActiveMQRelay(TestCase):
                 relay.process,
                 [relay],
                 {
-                    "relay": relay,
-                    "column_name": open,
-                    "ewma_suffix": "_ewma",
-                    "v_suffix": "_v",
-                    "ip_suffix": "_ip"
+                    "relay": relay
                 }
             )
         ]
@@ -117,11 +113,7 @@ class Test_PandasActiveMQRelay(TestCase):
                 relay.process,
                 [relay],
                 {
-                    "relay": relay,
-                    "column_name": open,
-                    "ewma_suffix": "_ewma",
-                    "v_suffix": "_v",
-                    "ip_suffix": "_ip"
+                    "relay": relay
                 }
             )
         ]

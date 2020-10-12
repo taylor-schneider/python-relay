@@ -11,6 +11,6 @@ def update_dataframe_column(dataframe, column_name, new_column_suffix, value, de
     n = dataframe.shape[0]
 
     if n == 0:
-        dataframe.at[0, column_name] = value
+        dataframe.at[0, new_column_name] = value
     else:
-        dataframe.at[n - 1, column_name] = value
+        dataframe.at[n - 1, new_column_name] = value
